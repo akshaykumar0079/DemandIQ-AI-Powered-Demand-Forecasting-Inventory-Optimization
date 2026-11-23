@@ -7,9 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from demandiq.forecasting.baseline import seasonal_naive
+from demandiq.forecasting.batch import forecast_skus
 from demandiq.forecasting.evaluation import compare_forecasters
 from demandiq.forecasting.model import DemandForecaster, chronological_backtest
 from demandiq.inventory.policy import recommend_replenishment
+from demandiq.inventory.risk import classify_inventory_risk
 
 app = FastAPI(
     title="DemandIQ API",
@@ -40,10 +42,30 @@ class ReplenishmentRequest(BaseModel):
     review_period_days: int = Field(default=0, ge=0)
 
 
+class BatchForecastRequest(BaseModel):
+    histories: dict[str, list[float]] = Field(min_length=1)
+    horizon: int = Field(default=7, ge=1, le=365)
+
+
+class InventoryRiskRequest(BaseModel):
+    on_hand: int = Field(ge=0)
+    reorder_point: int = Field(ge=0)
+    target_stock: int = Field(ge=0)
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     """Basic process health endpoint."""
     return {"status": "ok", "service": "DemandIQ"}
+
+
+@app.post("/forecast/batch")
+def forecast_batch(request: BatchForecastRequest) -> dict[str, object]:
+    """Forecast multiple SKUs in one request."""
+    try:
+        return {"forecasts": forecast_skus(request.histories, request.horizon)}
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/forecast/baseline")
@@ -81,6 +103,19 @@ def forecast_compare(request: ForecastRequest) -> dict[str, object]:
     """Compare seasonal-naive and random-forest candidates chronologically."""
     try:
         return compare_forecasters(request.history, request.horizon)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/inventory/risk")
+def inventory_risk(request: InventoryRiskRequest) -> dict[str, object]:
+    """Classify stockout or overstock exposure against policy thresholds."""
+    try:
+        return classify_inventory_risk(
+            on_hand=request.on_hand,
+            reorder_point=request.reorder_point,
+            target_stock=request.target_stock,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
