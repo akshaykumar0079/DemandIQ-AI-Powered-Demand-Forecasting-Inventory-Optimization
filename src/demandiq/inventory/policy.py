@@ -14,6 +14,7 @@ class ReplenishmentRecommendation:
     safety_stock: int
     reorder_point: int
     inventory_position: int
+    target_stock: int
     suggested_order_quantity: int
 
 
@@ -24,6 +25,8 @@ def recommend_replenishment(
     lead_time_days: int,
     service_factor: float = 1.65,
     review_period_days: int = 0,
+    on_order: int = 0,
+    allocated: int = 0,
 ) -> ReplenishmentRecommendation:
     """Calculate a simple demand-variability-based reorder recommendation.
 
@@ -35,7 +38,7 @@ def recommend_replenishment(
         raise ValueError("Forecast must contain at least one daily value.")
     if any(not math.isfinite(float(value)) or float(value) < 0 for value in forecast):
         raise ValueError("Forecast values must be finite and non-negative.")
-    if on_hand < 0 or lead_time_days < 0 or review_period_days < 0:
+    if min(on_hand, on_order, allocated, lead_time_days, review_period_days) < 0:
         raise ValueError("Stock and day counts must be non-negative.")
     if service_factor < 0 or not math.isfinite(service_factor):
         raise ValueError("Service factor must be finite and non-negative.")
@@ -45,12 +48,13 @@ def recommend_replenishment(
     safety = math.ceil(service_factor * math.sqrt(variance) * math.sqrt(lead_time_days))
     reorder_point = math.ceil(mean_demand * lead_time_days) + safety
     target_stock = math.ceil(mean_demand * (lead_time_days + review_period_days)) + safety
-    inventory_position = on_hand
+    inventory_position = on_hand + on_order - allocated
     suggested = max(0, target_stock - inventory_position)
     return ReplenishmentRecommendation(
         average_daily_demand=mean_demand,
         safety_stock=safety,
         reorder_point=reorder_point,
         inventory_position=inventory_position,
+        target_stock=target_stock,
         suggested_order_quantity=suggested,
     )
