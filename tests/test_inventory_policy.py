@@ -31,3 +31,12 @@ def test_invalid_inventory_parameters_are_rejected(kwargs):
 def test_empty_forecast_is_rejected():
     with pytest.raises(ValueError):
         recommend_replenishment([], on_hand=0, lead_time_days=2)
+
+def test_inventory_position_includes_inbound_and_allocated_units():
+    result = recommend_replenishment(
+        [10, 10, 10], on_hand=20, on_order=15, allocated=5,
+        lead_time_days=2, review_period_days=1, service_factor=0,
+    )
+    assert result.inventory_position == 30
+    assert result.target_stock == 30
+    assert result.suggested_order_quantity == 0
