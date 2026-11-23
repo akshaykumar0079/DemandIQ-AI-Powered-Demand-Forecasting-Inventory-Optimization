@@ -12,6 +12,7 @@ DemandIQ is an AI-assisted demand planning application that turns historical pro
 - Calculates safety stock, reorder points, target stock, and suggested order quantities.
 - Accounts for on-hand, inbound, and allocated stock when calculating inventory position.
 - Classifies stockout exposure, healthy stock, and overstock exposure.
+- Persists daily SKU sales observations in SQLite with safe parameterized queries and idempotent SKU/date upserts.
 - Provides FastAPI endpoints and a responsive React planning dashboard.
 - Includes automated backend tests, frontend production build checks, and Docker Compose setup.
 
@@ -60,6 +61,8 @@ uvicorn demandiq.api.main:app --reload
 ```
 
 API documentation: http://localhost:8000/docs
+
+The API stores submitted sales observations in `data/demandiq.db` by default. Set `DEMANDIQ_DB_PATH` to use a different SQLite file. The sales-history endpoints are documented in [API reference](docs/API.md).
 
 ## Quick start — dashboard
 
