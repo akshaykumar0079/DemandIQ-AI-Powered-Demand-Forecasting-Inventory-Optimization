@@ -30,7 +30,7 @@ class DemandForecaster:
         self._fitted = False
         self._history: list[float] = []
 
-    def fit(self, history: list[float]) -> "DemandForecaster":
+    def fit(self, history: list[float]) -> DemandForecaster:
         """Fit the model on an ordered daily demand history."""
         features, target = build_training_frame(history)
         self.model.fit(features, target)
