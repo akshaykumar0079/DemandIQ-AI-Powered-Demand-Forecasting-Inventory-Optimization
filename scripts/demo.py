@@ -11,7 +11,9 @@ from demandiq.forecasting.model import DemandForecaster
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Forecast SKU demand from a daily sales CSV.")
-    parser.add_argument("csv_path", help="Path to a CSV containing date, sku, and quantity columns.")
+    parser.add_argument(
+        "csv_path", help="Path to a CSV containing date, sku, and quantity columns."
+    )
     parser.add_argument("--horizon", type=int, default=7, help="Number of days to forecast.")
     args = parser.parse_args()
 
