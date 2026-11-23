@@ -40,6 +40,8 @@ class ReplenishmentRequest(BaseModel):
     lead_time_days: int = Field(ge=0)
     service_factor: float = Field(default=1.65, ge=0)
     review_period_days: int = Field(default=0, ge=0)
+    on_order: int = Field(default=0, ge=0)
+    allocated: int = Field(default=0, ge=0)
 
 
 class BatchForecastRequest(BaseModel):
@@ -130,6 +132,8 @@ def inventory_recommendation(request: ReplenishmentRequest) -> dict[str, object]
             lead_time_days=request.lead_time_days,
             service_factor=request.service_factor,
             review_period_days=request.review_period_days,
+            on_order=request.on_order,
+            allocated=request.allocated,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
