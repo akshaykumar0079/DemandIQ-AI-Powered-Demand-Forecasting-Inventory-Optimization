@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 
 
-def seasonal_naive(history: list[float] | np.ndarray, horizon: int, season_length: int = 7) -> list[float]:
+def seasonal_naive(
+    history: list[float] | np.ndarray, horizon: int, season_length: int = 7
+) -> list[float]:
     """Repeat the latest complete seasonal pattern into the forecast horizon.
 
     If fewer than one full season is available, repeat the available history.
