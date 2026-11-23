@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from demandiq.forecasting.baseline import seasonal_naive
+from demandiq.forecasting.model import DemandForecaster, chronological_backtest
 from demandiq.inventory.policy import recommend_replenishment
 
 app = FastAPI(
@@ -43,6 +44,26 @@ def forecast_baseline(request: ForecastRequest) -> dict[str, object]:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"method": "seasonal_naive", "forecast": values, "horizon": request.horizon}
+
+
+@app.post("/forecast/ml")
+def forecast_ml(request: ForecastRequest) -> dict[str, object]:
+    """Return a recursive random-forest forecast for sufficiently long history."""
+    try:
+        values = DemandForecaster().fit(request.history).predict(request.horizon)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"method": "random_forest_lag_features", "forecast": values, "horizon": request.horizon}
+
+
+@app.post("/forecast/backtest")
+def forecast_backtest(request: ForecastRequest) -> dict[str, object]:
+    """Evaluate a chronological holdout using the machine-learning forecaster."""
+    try:
+        result = chronological_backtest(request.history, request.horizon)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return result
 
 
 @app.post("/inventory/recommendation")
