@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from demandiq.forecasting.baseline import seasonal_naive
+from demandiq.forecasting.evaluation import compare_forecasters
 from demandiq.forecasting.model import DemandForecaster, chronological_backtest
 from demandiq.inventory.policy import recommend_replenishment
 
@@ -64,6 +65,15 @@ def forecast_backtest(request: ForecastRequest) -> dict[str, object]:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return result
+
+
+@app.post("/forecast/compare")
+def forecast_compare(request: ForecastRequest) -> dict[str, object]:
+    """Compare seasonal-naive and random-forest candidates chronologically."""
+    try:
+        return compare_forecasters(request.history, request.horizon)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/inventory/recommendation")
