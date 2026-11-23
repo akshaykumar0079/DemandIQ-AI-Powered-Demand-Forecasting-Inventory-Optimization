@@ -71,3 +71,40 @@ def test_inventory_risk_endpoint():
     })
     assert response.status_code == 200
     assert response.json()["status"] == "stockout_risk"
+
+
+def test_sales_observation_endpoints_persist_and_list_skus(tmp_path, monkeypatch):
+    from demandiq.api import main
+
+    monkeypatch.setattr(main, "sales_store", main.SalesStore(tmp_path / "api-sales.db"))
+    saved = client.post(
+        "/sales/observations",
+        json={
+            "observations": [
+                {"sku": "SKU-A", "sales_date": "2026-01-02", "units_sold": 11},
+                {"sku": "SKU-A", "sales_date": "2026-01-01", "units_sold": 8},
+                {"sku": "SKU-B", "sales_date": "2026-01-01", "units_sold": 4},
+            ]
+        },
+    )
+    assert saved.status_code == 200
+    assert saved.json() == {"saved": 3}
+
+    skus = client.get("/sales/skus")
+    assert skus.status_code == 200
+    assert skus.json()["skus"] == ["SKU-A", "SKU-B"]
+
+    history = client.get("/sales/SKU-A/history")
+    assert history.status_code == 200
+    assert history.json()["observations"] == [
+        {"date": "2026-01-01", "units_sold": 8.0},
+        {"date": "2026-01-02", "units_sold": 11.0},
+    ]
+
+
+def test_sales_observation_endpoint_validates_payload():
+    response = client.post(
+        "/sales/observations",
+        json={"observations": [{"sku": "SKU-A", "sales_date": "not-a-date", "units_sold": 2}]},
+    )
+    assert response.status_code == 422
