@@ -8,6 +8,9 @@ type Recommendation = { average_daily_demand: number; safety_stock: number; reor
 
 export default function App() {
   const [history, setHistory] = useState("12,14,13,9,16,18,15,13,15,14,10,17,19,16,14,16,15,11,18,20,17,15,17,16,12,19,21,18,16,18,17,13,20,22,19");
+  const [sku, setSku] = useState("SKU-001");
+  const [historyStart, setHistoryStart] = useState("2026-01-01");
+  const [saveStatus, setSaveStatus] = useState("");
   const [horizon, setHorizon] = useState(7);
   const [onHand, setOnHand] = useState(30);
   const [leadTime, setLeadTime] = useState(5);
@@ -60,6 +63,36 @@ export default function App() {
     }
   }
 
+  async function saveSalesHistory() {
+    if (!valid || !sku.trim() || !historyStart) {
+      setError("Enter a valid SKU, start date, and at least 8 daily sales values.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setSaveStatus("");
+    try {
+      const start = new Date(`${historyStart}T00:00:00Z`);
+      const observations = values.map((units_sold, index) => {
+        const day = new Date(start);
+        day.setUTCDate(day.getUTCDate() + index);
+        return { sku: sku.trim(), sales_date: day.toISOString().slice(0, 10), units_sold };
+      });
+      const response = await fetch(`${API}/sales/observations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ observations }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail ?? "Unable to save sales history");
+      setSaveStatus(`Saved ${result.saved} daily observations for ${sku.trim()}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to save sales history");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const maxForecast = Math.max(1, ...forecast);
   return (
     <main className="shell">
@@ -81,7 +114,15 @@ export default function App() {
             <label>Current stock <input type="number" min="0" value={onHand} onChange={(event) => setOnHand(Number(event.target.value))} /></label>
             <label>Lead time (days) <input type="number" min="0" value={leadTime} onChange={(event) => setLeadTime(Number(event.target.value))} /></label>
           </div>
-          <button className="primary" onClick={runPlanning} disabled={busy || !valid}><RefreshCw size={16} className={busy ? "spin" : ""} /> {busy ? "Analysing demand..." : "Generate planning insights"}</button>
+          <div className="field-row">
+            <label>SKU identifier <input type="text" maxLength={80} value={sku} onChange={(event) => setSku(event.target.value)} /></label>
+            <label>First sales date <input type="date" value={historyStart} onChange={(event) => setHistoryStart(event.target.value)} /></label>
+          </div>
+          <div className="field-row">
+            <button className="primary" onClick={runPlanning} disabled={busy || !valid}><RefreshCw size={16} className={busy ? "spin" : ""} /> {busy ? "Analysing demand..." : "Generate planning insights"}</button>
+            <button className="primary" onClick={saveSalesHistory} disabled={busy || !valid || !sku.trim() || !historyStart}>Save sales history</button>
+          </div>
+          {saveStatus && <p className="success">{saveStatus}</p>}
           {error && <p className="error">{error}</p>}
           <p className="hint">Use at least 8 daily observations. For model comparison, 22+ training days plus the selected holdout are recommended.</p>
         </article>
