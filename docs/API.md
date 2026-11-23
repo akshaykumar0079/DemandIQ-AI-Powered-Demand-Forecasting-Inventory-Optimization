@@ -13,6 +13,9 @@ Interactive OpenAPI documentation is available at `http://localhost:8000/docs`.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/health` | Service health |
+| POST | `/sales/observations` | Persist or update daily SKU sales observations |
+| GET | `/sales/skus` | List SKUs with stored observations |
+| GET | `/sales/{sku}/history` | Read a SKU's stored daily sales history |
 | POST | `/forecast/baseline` | Seasonal-naive baseline |
 | POST | `/forecast/ml` | Recursive random-forest forecast |
 | POST | `/forecast/backtest` | Chronological holdout predictions |
@@ -20,6 +23,19 @@ Interactive OpenAPI documentation is available at `http://localhost:8000/docs`.
 | POST | `/forecast/batch` | Forecast multiple SKU histories |
 | POST | `/inventory/recommendation` | Safety stock and suggested order |
 | POST | `/inventory/risk` | Stockout / healthy / overstock classification |
+
+## Example: persist sales observations
+
+```json
+{
+  "observations": [
+    {"sku": "SKU-100", "sales_date": "2026-01-01", "units_sold": 12},
+    {"sku": "SKU-100", "sales_date": "2026-01-02", "units_sold": 15}
+  ]
+}
+```
+
+Send this payload to `POST /sales/observations`. Repeating the same SKU/date updates that observation rather than creating a duplicate. Dates are validated as ISO calendar dates; each request accepts up to 5,000 rows. The database is SQLite by default at `data/demandiq.db`; set `DEMANDIQ_DB_PATH` to change its location. Use `GET /sales/skus` and `GET /sales/{sku}/history` to inspect saved data.
 
 ## Example: machine-learning forecast
 
