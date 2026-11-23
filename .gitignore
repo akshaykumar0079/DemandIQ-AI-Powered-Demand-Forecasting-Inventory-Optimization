@@ -16,3 +16,7 @@ node_modules/
 .DS_Store
 .idea/
 .vscode/
+
+# Local SQLite data (keep sample CSV files tracked)
+data/*.db
+data/*.db-*
