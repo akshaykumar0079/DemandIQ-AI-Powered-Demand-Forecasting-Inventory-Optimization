@@ -54,3 +54,20 @@ def test_forecast_comparison_endpoint():
     assert response.status_code == 200
     assert set(response.json()["models"]) == {"seasonal_naive", "random_forest"}
     assert response.json()["recommended_model"] in response.json()["models"]
+
+def test_batch_forecast_endpoint():
+    histories = {
+        "SKU-A": [float(5 + index % 4) for index in range(28)],
+        "SKU-B": [float(12 + index % 3) for index in range(28)],
+    }
+    response = client.post("/forecast/batch", json={"histories":histories,"horizon":3})
+    assert response.status_code == 200
+    assert set(response.json()["forecasts"]) == {"SKU-A", "SKU-B"}
+
+
+def test_inventory_risk_endpoint():
+    response = client.post("/inventory/risk", json={
+        "on_hand":5,"reorder_point":10,"target_stock":20
+    })
+    assert response.status_code == 200
+    assert response.json()["status"] == "stockout_risk"
