@@ -5,6 +5,10 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    environment:
+      DEMANDIQ_DB_PATH: /app/data/demandiq.db
+    volumes:
+      - demandiq-data:/app/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 15s
@@ -22,3 +26,6 @@ services:
     depends_on:
       api:
         condition: service_healthy
+
+volumes:
+  demandiq-data:
