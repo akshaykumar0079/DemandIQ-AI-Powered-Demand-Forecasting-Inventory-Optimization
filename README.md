@@ -1,74 +1,110 @@
 # DemandIQ — AI-Powered Demand Forecasting & Inventory Optimization
 
-DemandIQ is a portfolio-grade demand planning application that turns historical product sales into interpretable forecasts and practical replenishment recommendations. It is designed for small retail and warehouse teams that need to anticipate demand, understand forecast quality, and reduce avoidable stockouts and excess inventory.
+DemandIQ is an AI-assisted demand planning application that turns historical product sales into interpretable forecasts and practical replenishment recommendations. It combines a Python forecasting service, FastAPI endpoints, and a React dashboard.
 
-## What it will do
+## Features
 
-- Validate and aggregate daily sales history by SKU.
-- Train and compare forecasting baselines (seasonal naive and machine-learning regression).
-- Generate daily forecasts with backtesting metrics (MAE, RMSE, sMAPE).
-- Estimate safety stock, reorder points, and suggested order quantities from forecast demand and lead time.
-- Expose forecasts and recommendations through a FastAPI service.
-- Provide a React dashboard for product-level planning and model evaluation.
+- Validates and aggregates daily SKU sales from CSV files.
+- Compares a seasonal-naive benchmark with a Random Forest model using lag, rolling-mean, weekday, and trend features.
+- Generates recursive daily forecasts and chronological holdout predictions.
+- Evaluates models with MAE, RMSE, and sMAPE; includes expanding-window rolling backtesting.
+- Forecasts multiple SKUs in one request.
+- Calculates safety stock, reorder points, target stock, and suggested order quantities.
+- Accounts for on-hand, inbound, and allocated stock when calculating inventory position.
+- Classifies stockout exposure, healthy stock, and overstock exposure.
+- Provides FastAPI endpoints and a responsive React planning dashboard.
+- Includes automated backend tests, frontend production build checks, and Docker Compose setup.
 
 ## Architecture
 
 ```text
-CSV / database
+CSV sales data
      |
      v
-Data validation + daily aggregation
+Validation + daily SKU aggregation
      |
      v
-Feature engineering --> chronological backtesting --> model selection
-     |                                               |
-     v                                               v
-Forecast service ------------------------------> Forecast metrics
+Lag / rolling / calendar features
      |
      v
-Inventory policy (lead time, service level, on-hand)
-     |
-     v
-FastAPI --> React dashboard
+Seasonal-naive baseline <--> Random Forest forecaster
+     |                              |
+     +------ chronological evaluation
+                    |
+                    v
+         Forecast + error metrics
+                    |
+                    v
+   Reorder point / safety stock / risk
+                    |
+                    v
+             FastAPI service
+                    |
+                    v
+          React planning dashboard
 ```
 
-## Current development status
+See [architecture notes](docs/ARCHITECTURE.md), [API reference](docs/API.md), and [development guide](docs/DEVELOPMENT.md).
 
-The repository is being built incrementally. The initial milestone establishes the Python package, validated sales-data contract, forecasting primitives, and automated tests. API, persistence, dashboard, and deployment layers will be added in later milestones. Do not treat planned features as implemented until they appear in the code and tests.
-
-## Quick start
+## Quick start — backend
 
 Requires Python 3.10+.
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+source .venv/bin/activate        # Windows: .venv\\Scripts\\activate
 python -m pip install -e ".[dev]"
 pytest
+ruff check .
+uvicorn demandiq.api.main:app --reload
 ```
 
-## Sales CSV contract
+API documentation: http://localhost:8000/docs
 
-The minimum input columns are:
+## Quick start — dashboard
+
+In another terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173. The dashboard expects the API at http://localhost:8000 by default. Set `VITE_API_URL` to override it.
+
+## Docker Compose
+
+```bash
+docker compose up --build
+```
+
+The API is exposed on port 8000 and the dashboard on port 5173.
+
+## CSV demo
+
+The minimum CSV columns are:
 
 | Column | Meaning |
 | --- | --- |
 | `date` | Sales date in ISO format (YYYY-MM-DD) |
 | `sku` | Stable product identifier |
-| `quantity` | Non-negative units sold |
-
-Optional columns such as `price` and `store_id` may be retained by downstream integrations. Missing dates are not automatically interpreted as zero sales; callers should define the observation calendar before forecasting.
-
-## Development commands
+| `quantity` | Non-negative whole units sold |
 
 ```bash
-ruff check .
-ruff format --check .
-pytest
+python scripts/demo.py data/sample_sales.csv --horizon 7
 ```
+
+Missing dates are not automatically interpreted as zero sales. Define the observation calendar and stockout treatment before training on real business data.
+
+## Quality checks
+
+GitHub Actions runs Python lint and tests plus a TypeScript/Vite production build on pushes and pull requests to `main`.
 
 ## Responsible use and limitations
 
-Forecasts are estimates, not guarantees. New products, promotions, holidays, stockouts, price changes, and supply disruptions can make historical patterns unreliable. Inventory recommendations depend on the supplied lead time, service level, and stock position. Review recommendations before placing orders.
+Forecasts are estimates, not guarantees. New products, promotions, holidays, stockouts, price changes, and supply disruptions can make historical patterns unreliable. The Random Forest implementation is a practical tabular baseline, not a claim of state-of-the-art accuracy. Recursive multi-step predictions can compound error.
+
+Inventory calculations are transparent planning heuristics. They do not yet model supplier minimum order quantities, multiple supplier constraints, warehouse transfers, or a complete database-backed inventory ledger. Review recommendations before placing orders.
 
 This is an educational portfolio project, not a production inventory control system. Production deployment would require authentication, authorization, managed secrets, database migrations, observability, backups, and operational validation.
