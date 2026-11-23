@@ -93,6 +93,33 @@ export default function App() {
     }
   }
 
+  async function loadSalesHistory() {
+    if (!sku.trim()) {
+      setError("Enter a SKU identifier before loading saved sales.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setSaveStatus("");
+    try {
+      const response = await fetch(`${API}/sales/${encodeURIComponent(sku.trim())}/history`);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail ?? "Unable to load sales history");
+      const observations = result.observations as { date: string; units_sold: number }[];
+      if (!observations.length) {
+        setSaveStatus(`No saved sales history found for ${sku.trim()}.`);
+        return;
+      }
+      setHistory(observations.map((item) => item.units_sold).join(","));
+      setHistoryStart(observations[0].date);
+      setSaveStatus(`Loaded ${observations.length} daily observations for ${sku.trim()}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load sales history");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const maxForecast = Math.max(1, ...forecast);
   return (
     <main className="shell">
@@ -121,6 +148,7 @@ export default function App() {
           <div className="field-row">
             <button className="primary" onClick={runPlanning} disabled={busy || !valid}><RefreshCw size={16} className={busy ? "spin" : ""} /> {busy ? "Analysing demand..." : "Generate planning insights"}</button>
             <button className="primary" onClick={saveSalesHistory} disabled={busy || !valid || !sku.trim() || !historyStart}>Save sales history</button>
+            <button className="primary" onClick={loadSalesHistory} disabled={busy || !sku.trim()}>Load saved history</button>
           </div>
           {saveStatus && <p className="success">{saveStatus}</p>}
           {error && <p className="error">{error}</p>}
