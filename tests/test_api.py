@@ -31,3 +31,19 @@ def test_inventory_recommendation_endpoint():
     assert response.status_code == 200
     assert response.json()["reorder_point"] == 10
     assert response.json()["suggested_order_quantity"] >= 0
+
+
+def test_machine_learning_forecast_endpoint():
+    history = [float(5 + index % 5) for index in range(35)]
+    response = client.post("/forecast/ml", json={"history":history,"horizon":3})
+    assert response.status_code == 200
+    assert response.json()["method"] == "random_forest_lag_features"
+    assert len(response.json()["forecast"]) == 3
+
+
+def test_backtest_endpoint_returns_holdout_predictions():
+    history = [float(5 + index % 5) for index in range(35)]
+    response = client.post("/forecast/backtest", json={"history":history,"horizon":5})
+    assert response.status_code == 200
+    assert len(response.json()["actual"]) == 5
+    assert len(response.json()["predicted"]) == 5
