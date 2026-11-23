@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import os
+from datetime import date
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from demandiq.data.sqlite_store import SalesObservation, SalesStore
 from demandiq.forecasting.baseline import seasonal_naive
 from demandiq.forecasting.batch import forecast_skus
 from demandiq.forecasting.evaluation import compare_forecasters
@@ -26,6 +30,20 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
+
+
+# Override DEMANDIQ_DB_PATH to place the SQLite file outside the project directory.
+sales_store = SalesStore(os.getenv("DEMANDIQ_DB_PATH", "data/demandiq.db"))
+
+
+class SalesObservationInput(BaseModel):
+    sku: str = Field(min_length=1, max_length=80)
+    sales_date: date
+    units_sold: float = Field(ge=0)
+
+
+class SalesBatchRequest(BaseModel):
+    observations: list[SalesObservationInput] = Field(min_length=1, max_length=5000)
 
 
 class ForecastRequest(BaseModel):
@@ -59,6 +77,43 @@ class InventoryRiskRequest(BaseModel):
 def health() -> dict[str, str]:
     """Basic process health endpoint."""
     return {"status": "ok", "service": "DemandIQ"}
+
+
+@app.post("/sales/observations")
+def save_sales_observations(request: SalesBatchRequest) -> dict[str, int]:
+    """Persist daily sales observations, upserting duplicate SKU/date pairs."""
+    observations = [
+        SalesObservation(
+            sku=item.sku.strip(),
+            date=item.sales_date.isoformat(),
+            units_sold=item.units_sold,
+        )
+        for item in request.observations
+    ]
+    try:
+        saved = sales_store.upsert_many(observations)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"saved": saved}
+
+
+@app.get("/sales/skus")
+def list_sales_skus() -> dict[str, list[str]]:
+    """List all SKU identifiers with stored sales history."""
+    return {"skus": sales_store.skus()}
+
+
+@app.get("/sales/{sku}/history")
+def get_sales_history(sku: str) -> dict[str, object]:
+    """Return persisted daily sales observations for one SKU."""
+    observations = sales_store.history(sku)
+    return {
+        "sku": sku,
+        "observations": [
+            {"date": item.date, "units_sold": item.units_sold}
+            for item in observations
+        ],
+    }
 
 
 @app.post("/forecast/batch")
