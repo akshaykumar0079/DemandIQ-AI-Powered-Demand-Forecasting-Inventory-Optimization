@@ -47,3 +47,10 @@ def test_backtest_endpoint_returns_holdout_predictions():
     assert response.status_code == 200
     assert len(response.json()["actual"]) == 5
     assert len(response.json()["predicted"]) == 5
+
+def test_forecast_comparison_endpoint():
+    history = [float(8 + index % 7) for index in range(42)]
+    response = client.post("/forecast/compare", json={"history":history,"horizon":7})
+    assert response.status_code == 200
+    assert set(response.json()["models"]) == {"seasonal_naive", "random_forest"}
+    assert response.json()["recommended_model"] in response.json()["models"]
