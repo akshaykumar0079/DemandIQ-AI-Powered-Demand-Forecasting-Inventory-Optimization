@@ -20,7 +20,7 @@ def test_invalid_forecast_input_is_rejected(history, horizon):
 
 def test_error_metrics_match_expected_values():
     assert mae([2, 4], [1, 6]) == 1.5
-    assert rmse([2, 4], [1, 6]) == pytest.approx(5**0.5)
+    assert rmse([2, 4], [1, 6]) == pytest.approx(2.5**0.5)
     assert smape([0, 0], [0, 0]) == 0.0
 
 
